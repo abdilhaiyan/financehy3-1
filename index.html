@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ledger — Personal Finance</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginOverlay" class="overlay">
+  <div class="login-card">
+    <img id="loginAvatar" src="images/along.png" class="login-avatar" alt="avatar">
+    <h2>◆ Ledger</h2>
+    <p class="muted">Sign in to your workspace</p>
+    <form id="loginForm">
+      <label>Username</label>
+      <input id="loginUser" autocomplete="username" required>
+      <label>Password</label>
+      <input id="loginPass" type="password" autocomplete="current-password" required>
+      <button class="primary" type="submit">Sign In</button>
+    </form>
+    <p id="loginErr" class="err"></p>
+  </div>
+</div>
+
+<!-- APP -->
+<nav class="topbar" id="appUI" style="display:none">
+  <div class="brand">◆ Ledger</div>
+  <div class="top-actions">
+    <a href="https://yourusername.github.io/existing-repo/" target="_blank" rel="noopener" class="ghost-btn">Monthly Commitment ↗</a>
+    <button id="theme-toggle" class="icon-btn" aria-label="Theme">🌙</button>
+    <img id="navAvatar" class="nav-avatar" alt="">
+    <span id="navUser" class="nav-user"></span>
+    <button id="userMenuBtn" class="mini-btn">Menu</button>
+  </div>
+</nav>
+
+<!-- USER MENU -->
+<div id="userMenu" class="drawer hidden">
+  <div class="drawer-head"><h3>Account</h3><button id="closeMenu" class="icon-btn">✕</button></div>
+  <div id="menuBody"></div>
+</div>
+
+<main class="container" id="mainUI" style="display:none">
+  <section class="toolbar">
+    <div class="field">
+      <label>Account</label>
+      <div class="inline">
+        <select id="account-filter"></select>
+        <button id="add-account" class="mini-btn" title="Add account">+</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Period</label>
+      <select id="month-filter"></select>
+    </div>
+    <div class="field">
+      <label>Monthly Budget</label>
+      <input type="number" id="budget-input" min="0" step="0.01" placeholder="0">
+    </div>
+    <div class="field csv">
+      <label>Data</label>
+      <div class="inline">
+        <button id="export-csv" class="mini-btn">Export</button>
+        <button id="import-csv-btn" class="mini-btn">Import</button>
+        <input type="file" id="import-csv" accept=".csv" hidden>
+      </div>
+      <label class="check" style="margin-top:6px"><input type="checkbox" id="append-mode"> Append mode (safe IDs)</label>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><span class="stat-label">Net</span><span id="balance" class="stat-value">$0.00</span></div>
+    <div class="stat in"><span class="stat-label">In</span><span id="total-income" class="stat-value">$0.00</span></div>
+    <div class="stat out"><span class="stat-label">Out</span><span id="total-expense" class="stat-value">$0.00</span></div>
+    <div class="stat budget">
+      <span class="stat-label">Budget</span>
+      <span id="budget-status" class="stat-value">$0 / $0</span>
+      <div class="bar"><div id="budget-fill" class="bar-fill"></div></div>
+      <small id="budget-msg"></small>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>New Transaction</h2>
+      <form id="transaction-form">
+        <div class="form-row">
+          <div class="field"><label>Note</label><input id="description" required placeholder="e.g. Groceries"></div>
+          <div class="field"><label>Amount</label><input id="amount" type="number" step="0.01" required placeholder="0.00"></div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Type</label>
+            <select id="type"><option value="expense">Expense</option><option value="income">Income</option></select>
+          </div>
+          <div class="field">
+            <label>Category</label>
+            <select id="category" onchange="toggleCustomCat()">
+              <option>Food</option><option>Transport</option><option>Bills</option>
+              <option>Entertainment</option><option>Salary</option><option value="Other">Other</option>
+            </select>
+            <input id="customCategory" class="hidden" placeholder="Custom category name" style="margin-top:6px">
+          </div>
+          <div class="field"><label>Date</label><input id="date" type="date" required></div>
+        </div>
+        <label class="check"><input type="checkbox" id="recurring-toggle"> Recurring</label>
+        <div id="recurring-fields" class="recurring-fields hidden">
+          <div class="form-row">
+            <div class="field">
+              <label>Repeat</label>
+              <select id="frequency"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select>
+            </div>
+            <div class="field"><label>Until (optional)</label><input id="recurring-end" type="date"></div>
+          </div>
+        </div>
+        <button type="submit" class="primary">Add</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Spending by Category</h2>
+      <div class="chart-wrap"><canvas id="expense-chart"></canvas></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Recurring Rules</h2>
+    <div id="recurring-list" class="recurring-list"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Activity</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Note</th><th>Category</th><th>Type</th><th>Amount</th><th></th></tr></thead>
+        <tbody id="transaction-list"></tbody>
+      </table>
+    </div>
+    <button id="clear-all" class="danger">Clear All</button>
+  </section>
+
+  <!-- Feedback / Comments -->
+  <section class="panel">
+    <h2>Feedback & Suggestions</h2>
+    <textarea id="commentText" rows="3" placeholder="Suggest improvement for this app..."></textarea>
+    <button id="postComment" class="mini-btn" style="margin-top:8px">Submit Comment</button>
+    <div id="commentList" style="margin-top:12px"></div>
+  </section>
+
+  <!-- ADMIN ONLY -->
+  <section class="panel" id="adminPanel" style="display:none">
+    <h2>Admin Console</h2>
+    <div class="admin-grid">
+      <div>
+        <h3>Manage Users</h3>
+        <div id="userList" class="recurring-list"></div>
+        <div style="margin-top:10px">
+          <input id="newUser" placeholder="new username">
+          <input id="newPass" type="password" placeholder="password" style="margin-top:6px">
+          <button id="addUserBtn" class="mini-btn" style="margin-top:6px">Add User</button>
+        </div>
+      </div>
+      <div>
+        <h3>AI Assistant</h3>
+        <input id="aiKey" placeholder="API Key" style="width:100%;padding:8px;margin-bottom:6px">
+        <input id="aiUrl" placeholder="https://api.openai.com/v1/chat/completions" style="width:100%;padding:8px;margin-bottom:6px">
+        <input id="aiModel" placeholder="gpt-4o-mini" style="width:100%;padding:8px;margin-bottom:6px">
+        <button id="saveAi" class="mini-btn">Save AI Config</button>
+        <textarea id="aiPrompt" rows="2" placeholder="Ask AI about my finances..." style="width:100%;margin-top:8px;padding:8px"></textarea>
+        <button id="askAi" class="mini-btn" style="margin-top:6px">Ask</button>
+        <div id="aiReply" class="muted" style="margin-top:8px;white-space:pre-wrap"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
